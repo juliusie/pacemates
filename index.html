@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#5DB6EC">
+<meta name="description" content="PaceMates helps you find a running club in Madrid that fits your pace, your neighborhood and your week.">
+<title>PaceMates: find your running club</title>
+<style>
+:root{
+  --sky-50:#F2F9FE; --sky-100:#E3F2FC; --sky-200:#C2E3F8; --sky-300:#93CDF2; --sky-400:#5DB6EC;
+  --sky-500:#2F9DE4; --sky-600:#1B84C8; --sky-700:#146AA4;
+  --ink:#0E2A44; --ink-2:#3F566E; --muted:#6B7F95; --line:#DAE7F2; --bg:#E9F3FA;
+  --red:#D32F43; --red-dark:#B82337; --red-50:#FDECEE;
+  --radius:16px; --shadow:0 1px 2px rgba(14,42,68,.06),0 6px 16px rgba(14,42,68,.07);
+  --top:calc(env(safe-area-inset-top,0px) + 22px);
+  --tabs:68px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+h1{font-size:26px;line-height:1.15;letter-spacing:-.4px;font-weight:800}
+h2{font-size:13px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:3px solid var(--sky-500);outline-offset:2px}
+
+/* ---------- shell ---------- */
+#app{position:relative;max-width:430px;height:100vh;height:100dvh;margin:0 auto;background:#fff;overflow:hidden}
+#screen{height:100%;overflow-y:auto;overflow-x:hidden;padding:var(--top) 20px 28px;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;scroll-behavior:auto}
+#screen>*{flex:none}
+#screen:focus{outline:none}
+.has-tabs #screen{padding-bottom:calc(var(--tabs) + 24px)}
+@media(min-width:600px){
+  body{padding:20px 0}
+  #app{height:min(880px,calc(100vh - 40px));border-radius:46px;border:10px solid var(--ink);box-shadow:0 18px 50px rgba(14,42,68,.25)}
+  :root{--top:34px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- tab bar ---------- */
+#tabs{position:absolute;left:0;right:0;bottom:0;height:var(--tabs);display:none;grid-template-columns:repeat(3,1fr);background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.has-tabs #tabs{display:grid}
+#tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:none;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+#tabs button[aria-current=page]{color:var(--sky-700)}
+#tabs svg{width:23px;height:23px}
+
+/* ---------- primitives ---------- */
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.muted{color:var(--muted)}
+.fine{font-size:13px;color:var(--muted)}
+.eyebrow{font-size:14px;font-weight:600;color:var(--sky-700);margin-bottom:4px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;padding:0 20px;border-radius:999px;border:2px solid var(--sky-700);background:#fff;color:var(--sky-700);font-size:17px;font-weight:700;cursor:pointer;transition:transform .12s,background .15s}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-red{background:var(--red);border-color:var(--red);color:#fff}
+.btn-red:hover{background:var(--red-dark);border-color:var(--red-dark)}
+.btn-ghost{border-color:transparent;background:transparent}
+.btn-sm{min-height:42px;font-size:15px;width:auto;padding:0 18px}
+.link{background:none;border:0;padding:6px 0;color:var(--sky-700);font-weight:700;font-size:14px;cursor:pointer}
+.link.danger{color:var(--red)}
+.back{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;margin:0 0 14px -6px;padding:6px 8px 6px 2px;background:none;border:0;color:var(--sky-700);font-weight:700;font-size:15px;cursor:pointer}
+.iconbtn{position:relative;flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:14px;border:1.5px solid var(--line);background:#fff;color:var(--sky-700);cursor:pointer}
+.iconbtn .count{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--red);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;border:2px solid #fff}
+
+/* ---------- forms ---------- */
+label.f{display:block;margin:18px 0 6px;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.field,select.field,textarea.field{width:100%;min-height:48px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font-size:16px}
+textarea.field{min-height:92px;resize:vertical}
+.field:focus{outline:none;border-color:var(--sky-500);box-shadow:0 0 0 3px var(--sky-200)}
+.field[aria-invalid=true]{border-color:var(--red)}
+input[type=range]{width:100%;accent-color:var(--red);margin:6px 0}
+input[type=range]:disabled{opacity:.4}
+.err{min-height:22px;margin:12px 0 6px;font-size:14px;font-weight:700;color:var(--red)}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{position:relative;display:inline-block}
+.chip input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.chip span{display:inline-block;padding:9px 15px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:14px;font-weight:600;color:var(--ink-2);transition:background .12s,border-color .12s}
+.chip input:checked+span{background:var(--sky-100);border-color:var(--sky-500);color:var(--sky-700)}
+.chip input:focus-visible+span{outline:3px solid var(--sky-500);outline-offset:2px}
+.chip input:disabled+span{opacity:.45}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+.switch input{width:22px;height:22px;accent-color:var(--red)}
+.pace-out{font-size:22px;font-weight:800;color:var(--sky-700);margin:4px 0}
+.bar{position:sticky;bottom:-28px;margin:auto -20px -28px;padding:14px 20px calc(22px + env(safe-area-inset-bottom,0px));background:linear-gradient(rgba(255,255,255,0),#fff 28%);display:flex;gap:10px}
+.bar .btn-ghost{width:auto;flex:none}
+
+/* ---------- welcome ---------- */
+.welcome{margin:calc(-1*var(--top)) -20px 0;padding:calc(var(--top) + 70px) 28px 40px;text-align:center;background:linear-gradient(180deg,var(--sky-400) 0%,var(--sky-200) 55%,#fff 100%)}
+.logo{display:flex;justify-content:center;margin-bottom:18px}
+.logo i{display:block;width:70px;height:70px;border-radius:50%}
+.logo i:first-child{background:#fff;box-shadow:0 6px 18px rgba(14,42,68,.15)}
+.logo i:last-child{background:var(--red);margin-left:-26px;opacity:.95}
+.brand{font-size:42px;font-weight:800;letter-spacing:-.8px;color:var(--ink)}
+.tagline{margin-top:10px;font-size:20px;font-weight:600;color:var(--ink);opacity:.85}
+.welcome-body{display:flex;flex-direction:column;gap:12px;padding-top:24px}
+.stats{display:flex;justify-content:center;gap:26px;margin:2px 0 14px}
+.stats b{display:block;font-size:22px;color:var(--sky-700)}
+.stats span{font-size:12px;color:var(--muted);font-weight:600}
+
+/* ---------- list ---------- */
+.head{margin-bottom:16px}
+.searchrow{display:flex;gap:10px}
+.search{flex:1;display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;border-radius:14px;background:var(--sky-50);border:1.5px solid var(--line);color:var(--muted)}
+.search:focus-within{border-color:var(--sky-500);background:#fff}
+.search input{flex:1;min-width:0;border:0;background:none;outline:none;font-size:16px;color:var(--ink)}
+.pills{display:flex;gap:8px;overflow-x:auto;padding:12px 0 2px;margin:0 -20px;padding-left:20px;padding-right:20px;scrollbar-width:none}
+.pills::-webkit-scrollbar{display:none}
+.pill{flex:none;display:inline-flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;border-radius:999px;background:var(--sky-100);color:var(--sky-700);border:0;font-size:13px;font-weight:700;cursor:pointer}
+.pill svg{width:14px;height:14px}
+.resultbar{display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px;font-size:14px;color:var(--muted);font-weight:600}
+.sort select{border:0;background:none;font-weight:700;color:var(--sky-700);font-size:14px;cursor:pointer;padding:4px 0}
+.club{display:block;margin-bottom:12px;padding:16px;border-radius:var(--radius);background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,border-color .15s}
+.club:hover{border-color:var(--sky-300)}
+.club:active{transform:scale(.99)}
+.club h3{font-size:17px;font-weight:800;letter-spacing:-.2px;color:var(--ink)}
+.club .where{margin-top:3px;font-size:13px;color:var(--muted)}
+.match{flex:none;padding:4px 9px;border-radius:999px;background:var(--sky-100);color:var(--sky-700);font-size:12px;font-weight:800}
+.match.hot{background:var(--red-50);color:var(--red)}
+.facts{display:flex;flex-wrap:wrap;gap:6px 16px;margin:12px 0 4px;font-size:14px;font-weight:600;color:var(--ink-2)}
+.facts span{display:inline-flex;align-items:center;gap:5px}
+.facts svg{width:16px;height:16px;color:var(--sky-600)}
+.next{font-size:13px;color:var(--ink-2);margin-top:6px}
+.next b{color:var(--sky-700)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tag{padding:3px 9px;border-radius:6px;background:var(--sky-50);border:1px solid var(--line);font-size:12px;font-weight:600;color:var(--ink-2)}
+.tag.red{background:var(--red-50);border-color:#F6C7CD;color:var(--red-dark)}
+.cfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);font-weight:600}
+.cfoot .low{color:var(--red);font-weight:700}
+.joined{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:var(--sky-700);color:#fff;font-size:11px;font-weight:700;vertical-align:2px}
+.stack{display:flex}
+.stack .av{margin-left:-8px;border:2px solid #fff}
+.stack .av:first-child{margin-left:0}
+.av{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;color:#fff;font-size:12px;font-weight:700}
+.av.lg{width:42px;height:42px;font-size:15px}
+.av.more{background:var(--sky-100);color:var(--sky-700)}
+.cta{margin-top:10px;padding:20px;border-radius:var(--radius);background:var(--sky-50);border:1px dashed var(--sky-300);text-align:center}
+.cta .btn{margin:12px auto 0}
+.empty{padding:44px 12px;text-align:center}
+.empty b{display:block;font-size:18px;margin-bottom:6px}
+.empty p{color:var(--muted);margin-bottom:18px}
+
+/* ---------- filters ---------- */
+.sec{padding:20px 0 4px;border-bottom:1px solid var(--line)}
+.sec:last-of-type{border-bottom:0}
+.sec h2{margin-bottom:12px}
+.sec .sub{margin:-6px 0 12px;font-size:13px;color:var(--muted)}
+.scale{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+
+/* ---------- club detail ---------- */
+.cover{margin:calc(-1*var(--top)) -20px 18px;padding:calc(var(--top) + 6px) 20px 22px;background:linear-gradient(160deg,var(--sky-400),var(--sky-200) 70%,var(--sky-50));}
+.cover .back{color:var(--ink)}
+.cover h1{margin-top:6px}
+.cover p{margin-top:6px;color:var(--ink-2);font-size:14px;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:2px 0 6px}
+.stat{padding:12px 14px;border-radius:14px;background:var(--sky-50);border:1px solid var(--line)}
+.stat b{display:block;font-size:19px;color:var(--ink)}
+.stat span{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.block{margin-top:22px}
+.block h2{margin-bottom:10px}
+.runs{list-style:none;margin:0;padding:0}
+.runs li{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
+.runs li b{color:var(--ink)}
+.runs li span{color:var(--muted);font-weight:600}
+.member{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.member b{font-size:15px}
+.member .fine{margin-top:1px}
+.member.me .av{background:var(--red)!important}
+.notice{padding:12px 14px;margin-top:14px;border-radius:12px;background:var(--red-50);color:var(--red-dark);font-size:14px;font-weight:600}
+
+/* ---------- profile ---------- */
+.profile-top{display:flex;align-items:center;gap:14px;margin:4px 0 18px}
+.profile-top .av{width:60px;height:60px;font-size:22px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:6px}
+.kpi{padding:12px 8px;border-radius:14px;background:var(--sky-50);border:1px solid var(--line);text-align:center}
+.kpi b{display:block;font-size:20px;color:var(--sky-700)}
+.kpi span{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+
+/* ---------- toast ---------- */
+#toast{position:absolute;left:20px;right:20px;bottom:calc(var(--tabs) + 14px);padding:13px 16px;border-radius:12px;background:var(--ink);color:#fff;font-size:14px;font-weight:600;text-align:center;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;z-index:5}
+#toast.show{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <main id="screen" tabindex="-1"></main>
+  <nav id="tabs" aria-label="Main"></nav>
+  <div id="toast" role="status" aria-live="polite"></div>
+</div>
+<noscript><p style="padding:24px">PaceMates needs JavaScript to run.</p></noscript>
+
+<script src="config.js"></script>
+<script src="local-backend.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   1. CONFIG
+   ===================================================================== */
+const STORAGE_KEY = 'pacemates-v2';
+const PACE = { min: 240, max: 480, step: 15 };          // seconds per km
+const DEFAULT_PACE = 345;
+
+// Approximate neighborhood centres (latitude, longitude), used for distances.
+const NEIGHBORHOODS = {
+  'Retiro':        [40.4153, -3.6845],
+  'Chamberí':      [40.4340, -3.7038],
+  'Malasaña':      [40.4256, -3.7040],
+  'Salamanca':     [40.4301, -3.6770],
+  'Moncloa':       [40.4350, -3.7190],
+  'Lavapiés':      [40.4086, -3.7007],
+  'Arganzuela':    [40.3960, -3.6990],
+  'Casa de Campo': [40.4170, -3.7500],
+  'Chamartín':     [40.4600, -3.6770]
+};
+const HOODS = Object.keys(NEIGHBORHOODS);
+const GENDERS = ['Woman', 'Man', 'Non-binary', 'Prefer not to say'];
+const NATIONALITIES = ['Spain', 'Germany', 'Italy', 'France', 'United Kingdom', 'United States', 'Portugal', 'Mexico', 'Brazil', 'Netherlands', 'Colombia', 'Other'];
+const LANGUAGES = ['English', 'Spanish', 'German', 'French', 'Italian', 'Portuguese'];
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const TYPES = ['Social', 'Training', 'Trail', 'Intervals', 'Beginner-friendly'];
+
+const TIME_SLOTS = {
+  early:   { label: 'Early, before 8:00',  test: h => h < 8 },
+  morning: { label: 'Morning, 8:00 to 12:00', test: h => h >= 8 && h < 12 },
+  midday:  { label: 'Midday, 12:00 to 17:00', test: h => h >= 12 && h < 17 },
+  evening: { label: 'Evening, after 17:00', test: h => h >= 17 }
+};
+const DISTANCES = {
+  short: { label: 'Up to 6 km',    test: k => k <= 6 },
+  mid:   { label: '7 to 10 km',    test: k => k >= 7 && k <= 10 },
+  long:  { label: '11 km or more', test: k => k >= 11 }
+};
+const SIZES = {
+  small:  { label: 'Small, up to 10',  test: n => n <= 10 },
+  medium: { label: 'Medium, 11 to 14', test: n => n >= 11 && n <= 14 },
+  large:  { label: 'Large, 15 or more', test: n => n >= 15 }
+};
+const WITHIN_KM = [2, 4, 6, 8];
+const SORTS = { match: 'Best match', soonest: 'Soonest run', nearest: 'Nearest', size: 'Most runners' };
+const TABS = [
+  { view: 'list',    label: 'Clubs',    icon: 'compass' },
+  { view: 'mine',    label: 'My clubs', icon: 'calendar' },
+  { view: 'profile', label: 'Profile',  icon: 'user' }
+];
+
+/* =====================================================================
+   2. UTILITIES
+   ===================================================================== */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const fmtPace = sec => Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+const parsePaceStr = s => { const [m, r] = s.split(':').map(Number); return m * 60 + r; };
+const firstName = n => String(n).trim().split(/\s+/)[0] || 'Runner';
+const displayName = u => {
+  const parts = String(u.name).trim().split(/\s+/);
+  return parts.length > 1 ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.' : parts[0];
+};
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+function haversineKm(a, b) {
+  const R = 6371, rad = d => d * Math.PI / 180;
+  const dLat = rad(b[0] - a[0]), dLng = rad(b[1] - a[1]);
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+const ICONS = {
+  search:   '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  sliders:  '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  user:     '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  compass:  '<circle cx="12" cy="12" r="10"/><path d="M16.2 7.8l-2 6.3-6.4 2.1 2-6.3z"/>',
+  pin:      '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  clock:    '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  speed:    '<path d="M12 14l4-4"/><path d="M3.3 17a10 10 0 1 1 17.4 0"/>',
+  route:    '<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8a4 4 0 0 0 0-8H8a4 4 0 0 1 0-8h8"/>',
+  back:     '<path d="M15 18l-6-6 6-6"/>',
+  close:    '<path d="M18 6L6 18M6 6l12 12"/>',
+  plus:     '<path d="M12 5v14M5 12h14"/>'
+};
+const icon = (name, extra) => '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"' + (extra || '') + '>' + ICONS[name] + '</svg>';
+
+const AV_COLORS = ['#1F7DBD', '#14649A', '#2B88B8', '#4A6FA5', '#2A6F97', '#C53548'];
+function avatar(name, large) {
+  let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return '<span class="av' + (large ? ' lg' : '') + '" style="background:' + AV_COLORS[h % AV_COLORS.length] + '" aria-hidden="true">' + esc(name.charAt(0).toUpperCase()) + '</span>';
+}
+
+/* =====================================================================
+   3. DATA LAYER (server API, selectors)
+   ===================================================================== */
+const defaultFilters = () => ({ pace: null, tol: 30, hoods: [], days: [], times: [], dists: [], types: [], sizes: [], langs: [], within: null, open: false, women: false });
+
+/* ---- server API ---- */
+const API_BASE = (window.PACEMATES_API || '').replace(/\/$/, '');
+const LOCAL_MODE = window.PACEMATES_API === null && !!window.PaceMatesLocal;
+const Token = {
+  get() { try { return localStorage.getItem('pacemates-token'); } catch (e) { return null; } },
+  set(v) { try { localStorage.setItem('pacemates-token', v); } catch (e) { /* ignore */ } },
+  clear() { try { localStorage.removeItem('pacemates-token'); } catch (e) { /* ignore */ } }
+};
+const Prefs = {
+  load() { try { return JSON.parse(localStorage.getItem('pacemates-prefs')) || {}; } catch (e) { return {}; } },
+  save(s) { try { localStorage.setItem('pacemates-prefs', JSON.stringify({ filters: s.filters, sort: s.sort })); } catch (e) { /* ignore */ } }
+};
+async function api(method, path, body) {
+  if (LOCAL_MODE) return window.PaceMatesLocal.handle(method, path, body, Token.get());
+  const headers = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' };
+  if (Token.get()) headers.Authorization = 'Bearer ' + Token.get();
+  let res;
+  try {
+    res = await fetch(API_BASE + '/api' + path, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined });
+  } catch (e) {
+    const err = new Error('Can\'t reach PaceMates right now. Check your connection and try again.'); err.status = 0; throw err;
+  }
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* empty body */ }
+  if (!res.ok) { const err = new Error(data.error || 'Something went wrong.'); err.status = res.status; throw err; }
+  return data;
+}
+
+const prefs = Prefs.load();
+const state = {
+  user: null, clubs: [], stats: null,
+  filters: Object.assign(defaultFilters(), prefs.filters),
+  sort: prefs.sort || 'match',
+  q: '', view: 'loading', param: null, back: 'list'
+};
+const persist = () => Prefs.save(state);
+const me = () => state.user;
+async function loadClubs() { state.clubs = (await api('GET', '/clubs')).clubs; }
+async function loadStats() { state.stats = await api('GET', '/public'); }
+
+const isMember = c => { const u = me(); return !!u && c.members.some(m => m.userId === u.id); };
+const spots = c => c.max - c.members.length;
+const levelOf = c => c.pace >= 390 ? 'Easy' : c.pace >= 330 ? 'Moderate' : 'Fast';
+const clubById = id => state.clubs.find(c => c.id === id);
+
+function distanceFromUser(c) {
+  const u = me(); if (!u || !NEIGHBORHOODS[u.hood]) return 0;
+  return haversineKm(NEIGHBORHOODS[u.hood], NEIGHBORHOODS[c.hood]);
+}
+function distanceLabel(c) {
+  const km = distanceFromUser(c);
+  return km < 0.8 ? 'In your area' : km.toFixed(1) + ' km from you';
+}
+
+/* ---- schedule ---- */
+function runTimes(c, n) {
+  const [h, m] = c.time.split(':').map(Number), now = new Date(), out = [];
+  for (let off = 0; off < 60 && out.length < n; off++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + off, h, m);
+    if (c.days.includes((d.getDay() + 6) % 7) && d > now) out.push(d);
+  }
+  return out;
+}
+const nextRun = c => runTimes(c, 1)[0] || null;
+function runLabel(d) {
+  if (!d) return 'No upcoming run';
+  const today = new Date(), t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - t0) / 864e5);
+  const day = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return (diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : day) + ', ' + time;
+}
+const scheduleText = c => c.days.map(i => DAYS[i]).join(' & ') + ', ' + c.time;
+
+/* ---- matching, filtering, sorting ---- */
+function matchScore(c) {
+  const u = me(); if (!u) return 0;
+  const paceScore = Math.max(0, 1 - Math.abs(c.pace - u.pace) / 90);
+  const distScore = Math.max(0, 1 - distanceFromUser(c) / 8);
+  const dayScore = u.days && u.days.length ? (c.days.some(d => u.days.includes(d)) ? 1 : 0.3) : 0.65;
+  return Math.round(100 * (0.55 * paceScore + 0.3 * distScore + 0.15 * dayScore));
+}
+function matchesFilters(c, f, q) {
+  if (q) {
+    const hay = (c.name + ' ' + c.hood + ' ' + c.meet + ' ' + c.types.join(' ')).toLowerCase();
+    if (!hay.includes(q.trim().toLowerCase())) return false;
+  }
+  const hour = +c.time.slice(0, 2);
+  if (f.pace != null && Math.abs(c.pace - f.pace) > f.tol) return false;
+  if (f.hoods.length && !f.hoods.includes(c.hood)) return false;
+  if (f.days.length && !f.days.some(d => c.days.includes(d))) return false;
+  if (f.times.length && !f.times.some(k => TIME_SLOTS[k].test(hour))) return false;
+  if (f.dists.length && !f.dists.some(k => DISTANCES[k].test(c.dist))) return false;
+  if (f.types.length && !f.types.some(t => c.types.includes(t))) return false;
+  if (f.sizes.length && !f.sizes.some(k => SIZES[k].test(c.max))) return false;
+  if (f.langs.length && !f.langs.some(l => c.langs.includes(l))) return false;
+  if (f.within != null && distanceFromUser(c) > f.within) return false;
+  if (f.open && spots(c) <= 0) return false;
+  if (f.women && !c.women) return false;
+  return true;
+}
+function visibleClubs() {
+  const list = state.clubs.filter(c => matchesFilters(c, state.filters, state.q));
+  const by = {
+    match:   (a, b) => matchScore(b) - matchScore(a),
+    soonest: (a, b) => ((nextRun(a) || 1e15) - (nextRun(b) || 1e15)),
+    nearest: (a, b) => distanceFromUser(a) - distanceFromUser(b),
+    size:    (a, b) => b.members.length - a.members.length
+  }[state.sort];
+  return list.sort(by);
+}
+function activeFilters(f) {
+  const out = [];
+  if (f.pace != null) out.push({ key: 'pace', label: 'Pace ' + fmtPace(f.pace) + ' ±' + f.tol + 's' });
+  f.hoods.forEach(v => out.push({ key: 'hoods', value: v, label: v }));
+  f.days.forEach(v => out.push({ key: 'days', value: v, label: DAYS[v] }));
+  f.times.forEach(v => out.push({ key: 'times', value: v, label: TIME_SLOTS[v].label.split(',')[0] }));
+  f.dists.forEach(v => out.push({ key: 'dists', value: v, label: DISTANCES[v].label }));
+  f.types.forEach(v => out.push({ key: 'types', value: v, label: v }));
+  f.sizes.forEach(v => out.push({ key: 'sizes', value: v, label: SIZES[v].label.split(',')[0] + ' group' }));
+  f.langs.forEach(v => out.push({ key: 'langs', value: v, label: v }));
+  if (f.within != null) out.push({ key: 'within', label: 'Within ' + f.within + ' km' });
+  if (f.open) out.push({ key: 'open', label: 'Open spots' });
+  if (f.women) out.push({ key: 'women', label: 'Women only' });
+  return out;
+}
+const filterGroups = f => ['pace', 'hoods', 'days', 'times', 'dists', 'types', 'sizes', 'langs', 'within', 'open', 'women']
+  .filter(k => Array.isArray(f[k]) ? f[k].length : (k === 'open' || k === 'women') ? f[k] : f[k] != null).length;
+
+/* =====================================================================
+   5. VIEW HELPERS
+   ===================================================================== */
+function chipGroup(name, items, selected, type) {
+  const kind = type || 'checkbox';
+  return '<div class="chips">' + items.map(it => {
+    const on = Array.isArray(selected) ? selected.map(String).includes(String(it.value)) : String(selected) === String(it.value);
+    return '<label class="chip"><input type="' + kind + '" name="' + name + '" value="' + esc(it.value) + '"' + (on ? ' checked' : '') + '><span>' + esc(it.label) + '</span></label>';
+  }).join('') + '</div>';
+}
+const opts = (list, selected, placeholder) =>
+  (placeholder ? '<option value="">' + placeholder + '</option>' : '') +
+  list.map(x => '<option' + (x === selected ? ' selected' : '') + '>' + esc(x) + '</option>').join('');
+const paceOpts = selected => '<option value="">Select</option>' +
+  Array.from({ length: (PACE.max - PACE.min) / PACE.step + 1 }, (_, i) => PACE.min + i * PACE.step)
+    .map(s => '<option value="' + s + '"' + (s === selected ? ' selected' : '') + '>' + fmtPace(s) + ' min/km</option>').join('');
+const dayItems = () => DAYS.map((d, i) => ({ value: i, label: d }));
+const mapItems = list => list.map(v => ({ value: v, label: v }));
+const keyItems = obj => Object.keys(obj).map(k => ({ value: k, label: obj[k].label }));
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
+const backBtn = (to, label) => '<button class="back" data-go="' + to + '">' + icon('back') + (label || 'Back') + '</button>';
+
+function clubCard(c) {
+  const score = matchScore(c), sp = spots(c), run = nextRun(c), joined = isMember(c);
+  const shown = c.members.slice(0, 3), more = c.members.length - shown.length;
+  return '<article class="club" role="button" tabindex="0" data-go="club" data-id="' + c.id + '" aria-label="' + esc(c.name) + '">' +
+    '<div class="row" style="align-items:flex-start"><div><h3>' + esc(c.name) + (joined ? '<span class="joined">Joined</span>' : '') + '</h3>' +
+    '<p class="where">' + esc(c.hood) + ' · ' + esc(c.meet) + '</p></div>' +
+    '<span class="match' + (score >= 85 ? ' hot' : '') + '">' + score + '% match</span></div>' +
+    '<div class="facts"><span>' + icon('speed') + fmtPace(c.pace) + ' /km</span><span>' + icon('route') + c.dist + ' km</span><span>' + icon('clock') + esc(scheduleText(c)) + '</span></div>' +
+    '<p class="next">Next run: <b>' + runLabel(run) + '</b> · ' + distanceLabel(c) + '</p>' +
+    '<div class="tags">' + c.types.map(t => '<span class="tag">' + esc(t) + '</span>').join('') + (c.women ? '<span class="tag red">Women only</span>' : '') + '</div>' +
+    '<div class="cfoot"><div class="stack">' + shown.map(m => avatar(m.name)).join('') + (more > 0 ? '<span class="av more">+' + more + '</span>' : '') + '</div>' +
+    '<span' + (sp > 0 && sp <= 2 ? ' class="low"' : '') + '>' + (sp > 0 ? plural(c.members.length, 'runner', 'runners') + ' · ' + plural(sp, 'spot left', 'spots left') : 'Club is full') + '</span></div></article>';
+}
+function listBody(list) {
+  if (!state.clubs.length) {
+    const u = me();
+    return '<div class="empty"><b>No clubs yet</b><p>Be the first to start a running club in ' + esc(u ? u.hood : 'Madrid') + '. Runners at your pace will find you.</p>' +
+      '<button class="btn btn-red" data-go="create">Start a club</button></div>';
+  }
+  if (!list.length) {
+    return '<div class="empty"><b>No club matches yet</b><p>Try fewer filters or start the first club that fits you.</p>' +
+      '<button class="btn" data-act="clearfilters">Clear filters</button></div>';
+  }
+  return list.map(clubCard).join('');
+}
+
+/* =====================================================================
+   6. VIEWS
+   ===================================================================== */
+function vWelcome() {
+  const s = state.stats, show = s && (s.clubs > 0 || s.users > 0);
+  return '<div class="welcome"><div class="logo" aria-hidden="true"><i></i><i></i></div>' +
+    '<h1 class="brand">PaceMates</h1><p class="tagline">Find your pace.<br>Find your people.</p></div>' +
+    '<div class="welcome-body">' +
+    (show ? '<div class="stats"><div><b>' + s.clubs + '</b><span>clubs</span></div><div><b>' + s.neighborhoods + '</b><span>neighborhoods</span></div><div><b>' + s.users + '</b><span>runners</span></div></div>' : '') +
+    '<button class="btn btn-red" data-go="signup">Create account</button>' +
+    '<button class="btn" data-go="login">Log in</button>' +
+    '<p class="fine" style="text-align:center;margin-top:6px">Running clubs across Madrid, matched to your pace, area and week.</p>' +
+    (LOCAL_MODE ? '<p class="fine" style="text-align:center">Prototype: accounts and clubs are saved in this browser only.</p>' : '') + '</div>';
+}
+const vLoading = () => '<div class="empty" style="margin-top:34vh"><b>PaceMates</b><p>Loading…</p></div>';
+const vOffline = () => '<div class="empty" style="margin-top:28vh"><b>Can\'t reach PaceMates</b><p>The server is not answering. Check your connection and try again.</p><button class="btn btn-red" data-act="retry">Try again</button></div>';
+
+function vSignup() {
+  return backBtn('welcome') + '<h1>Create your account</h1><p class="muted" style="margin-top:6px">Two minutes, then you see clubs that fit.</p>' +
+    '<form data-form="signup" novalidate>' +
+    '<label class="f" for="name">Full name</label><input class="field" id="name" name="name" autocomplete="name" placeholder="Julia Fernández">' +
+    '<label class="f" for="email">Email</label><input class="field" type="email" id="email" name="email" autocomplete="email" placeholder="julia@email.com">' +
+    '<label class="f" for="password">Password</label><input class="field" type="password" id="password" name="password" autocomplete="new-password" placeholder="At least 8 characters">' +
+    '<label class="f" for="gender">Gender</label><select class="field" id="gender" name="gender">' + opts(GENDERS, '', 'Select') + '</select>' +
+    '<label class="f" for="nationality">Nationality</label><select class="field" id="nationality" name="nationality">' + opts(NATIONALITIES, '', 'Select') + '</select>' +
+    '<label class="f" for="hood">Neighborhood in Madrid</label><select class="field" id="hood" name="hood">' + opts(HOODS, '', 'Select') + '</select>' +
+    '<label class="f" for="pace">Your usual pace</label><select class="field" id="pace" name="pace">' + paceOpts() + '</select>' +
+    '<label class="f">Days you can run</label>' + chipGroup('days', dayItems(), []) +
+    '<label class="f">Languages</label>' + chipGroup('langs', mapItems(LANGUAGES), []) +
+    '<div class="err" id="err" role="alert"></div>' +
+    '<button class="btn btn-red" type="submit">Create account</button>' +
+    '<p class="fine" style="text-align:center;margin:16px 0 8px">Already a member? <button type="button" class="link" data-go="login">Log in</button></p></form>';
+}
+
+function vLogin() {
+  return backBtn('welcome') + '<h1>Welcome back</h1><p class="muted" style="margin-top:6px">Log in to see your clubs.</p>' +
+    '<form data-form="login" novalidate>' +
+    '<label class="f" for="email">Email</label><input class="field" type="email" id="email" name="email" autocomplete="email" placeholder="julia@email.com">' +
+    '<label class="f" for="password">Password</label><input class="field" type="password" id="password" name="password" autocomplete="current-password">' +
+    '<div class="err" id="err" role="alert"></div>' +
+    '<button class="btn btn-red" type="submit">Log in</button>' +
+    '<p class="fine" style="text-align:center;margin-top:16px">New here? <button type="button" class="link" data-go="signup">Create an account</button></p></form>';
+}
+
+function vList() {
+  const u = me(), list = visibleClubs(), f = state.filters, n = filterGroups(f), pills = activeFilters(f);
+  return '<header class="head"><p class="eyebrow">' + greeting() + ', ' + esc(firstName(u.name)) + '</p><h1>Running clubs near ' + esc(u.hood) + '</h1></header>' +
+    '<div class="searchrow"><label class="search">' + icon('search') + '<span class="sr">Search clubs</span>' +
+    '<input type="search" id="q" placeholder="Search clubs or places" value="' + esc(state.q) + '" autocomplete="off"></label>' +
+    '<button class="iconbtn" data-go="filters" aria-label="Filters' + (n ? ', ' + n + ' active' : '') + '">' + icon('sliders') + (n ? '<span class="count">' + n + '</span>' : '') + '</button></div>' +
+    (pills.length ? '<div class="pills">' + pills.map(p =>
+      '<button class="pill" data-act="unfilter" data-key="' + p.key + '" data-value="' + esc(p.value == null ? '' : p.value) + '" aria-label="Remove filter ' + esc(p.label) + '">' + esc(p.label) + icon('close') + '</button>').join('') + '</div>' : '') +
+    '<div class="resultbar"><span id="resultCount">' + plural(list.length, 'club', 'clubs') + '</span>' +
+    '<label class="sort"><span class="sr">Sort by</span><select id="sort">' + Object.keys(SORTS).map(k => '<option value="' + k + '"' + (state.sort === k ? ' selected' : '') + '>' + SORTS[k] + '</option>').join('') + '</select></label></div>' +
+    '<div id="clubList">' + listBody(list) + '</div>' +
+    (state.clubs.length ? '<div class="cta"><p><b>Can\'t find the right club?</b></p><p class="fine">Start your own and let runners at your pace find you.</p>' +
+    '<button class="btn btn-red btn-sm" data-go="create" style="margin-top:12px">' + icon('plus') + 'Start a club</button></div>' : '');
+}
+
+function vFilters() {
+  const f = state.filters, u = me(), any = f.pace == null, val = any ? (u.pace || DEFAULT_PACE) : f.pace;
+  return '<div class="row"><h1>Filters</h1><button class="iconbtn" data-go="list" aria-label="Close filters" style="border:0">' + icon('close') + '</button></div>' +
+    '<form data-form="filters" novalidate>' +
+    '<section class="sec"><h2>Pace</h2><div class="pace-out" id="paceOut">' + (any ? 'Any pace' : fmtPace(val) + ' min/km') + '</div>' +
+    '<input type="range" id="paceRange" name="pace" data-range="paceOut" min="' + PACE.min + '" max="' + PACE.max + '" step="' + PACE.step + '" value="' + val + '"' + (any ? ' disabled' : '') + ' aria-label="Pace in seconds per kilometer">' +
+    '<div class="scale"><span>' + fmtPace(PACE.min) + '</span><span>' + fmtPace(PACE.max) + '+</span></div>' +
+    '<label class="switch"><span>Any pace</span><input type="checkbox" name="anypace" data-anypace' + (any ? ' checked' : '') + '></label>' +
+    '<p class="sub" style="margin:12px 0 8px">How close should the club pace be?</p>' +
+    chipGroup('tol', [{ value: 15, label: '±15 s' }, { value: 30, label: '±30 s' }, { value: 60, label: '±60 s' }], f.tol, 'radio') + '</section>' +
+    '<section class="sec"><h2>Neighborhood</h2>' + chipGroup('hoods', mapItems(HOODS), f.hoods) + '</section>' +
+    '<section class="sec"><h2>Distance from ' + esc(u.hood) + '</h2>' +
+    chipGroup('within', [{ value: '', label: 'Any' }].concat(WITHIN_KM.map(k => ({ value: k, label: 'Within ' + k + ' km' }))), f.within == null ? '' : f.within, 'radio') + '</section>' +
+    '<section class="sec"><h2>Days</h2>' + chipGroup('days', dayItems(), f.days) + '</section>' +
+    '<section class="sec"><h2>Time of day</h2>' + chipGroup('times', keyItems(TIME_SLOTS), f.times) + '</section>' +
+    '<section class="sec"><h2>Run distance</h2>' + chipGroup('dists', keyItems(DISTANCES), f.dists) + '</section>' +
+    '<section class="sec"><h2>Style</h2>' + chipGroup('types', mapItems(TYPES), f.types) + '</section>' +
+    '<section class="sec"><h2>Group size</h2>' + chipGroup('sizes', keyItems(SIZES), f.sizes) + '</section>' +
+    '<section class="sec"><h2>Language</h2>' + chipGroup('langs', mapItems(LANGUAGES), f.langs) + '</section>' +
+    '<section class="sec"><h2>More</h2>' +
+    '<label class="switch"><span>Only clubs with open spots</span><input type="checkbox" name="open"' + (f.open ? ' checked' : '') + '></label>' +
+    '<label class="switch"><span>Women-only clubs</span><input type="checkbox" name="women"' + (f.women ? ' checked' : '') + '></label></section>' +
+    '<div class="bar"><button type="button" class="btn btn-ghost" data-act="resetfilters" style="min-width:90px">Reset</button>' +
+    '<button class="btn btn-red" type="submit" id="applyBtn">Show clubs</button></div></form>';
+}
+
+function vClub() {
+  const c = clubById(state.param); if (!c) return vList();
+  const u = me(), joined = isMember(c), sp = spots(c), blocked = c.women && u.gender === 'Man';
+  const runs = runTimes(c, 3);
+  const members = c.members.map(m => {
+    const mine = m.userId === u.id;
+    return '<div class="member' + (mine ? ' me' : '') + '">' + avatar(m.name, true) + '<div><b>' + esc(m.name) + (mine ? ' (you)' : '') +
+      (m.name === c.founder ? ' <span class="tag" style="margin-left:4px">Founder</span>' : '') + '</b>' +
+      '<div class="fine">' + esc(m.nationality) + ' · ' + esc(m.gender) + ' · ' + fmtPace(m.pace) + ' /km</div></div></div>';
+  }).join('');
+  let action;
+  if (joined) action = '<button class="btn" data-act="leave" data-id="' + c.id + '">Leave club</button>';
+  else if (blocked) action = '<button class="btn" disabled>Women-only club</button>';
+  else if (sp <= 0) action = '<button class="btn" disabled>Club is full</button>';
+  else action = '<button class="btn btn-red" data-act="join" data-id="' + c.id + '">Join club</button>';
+  return '<div class="cover">' + backBtn(state.back) + '<h1>' + esc(c.name) + '</h1><p>' + esc(c.hood) + ' · ' + matchScore(c) + '% match for you</p></div>' +
+    '<div class="grid"><div class="stat"><b>' + fmtPace(c.pace) + '</b><span>Pace /km</span></div><div class="stat"><b>' + c.dist + ' km</b><span>Distance</span></div>' +
+    '<div class="stat"><b>' + levelOf(c) + '</b><span>Level</span></div><div class="stat"><b>' + c.members.length + ' / ' + c.max + '</b><span>Runners</span></div></div>' +
+    '<section class="block"><h2>Next runs</h2><ul class="runs">' + runs.map(d => '<li><b>' + runLabel(d) + '</b><span>' + esc(c.meet) + '</span></li>').join('') + '</ul></section>' +
+    '<section class="block"><h2>Meeting point</h2><p><b>' + esc(c.meet) + '</b></p><p class="fine" style="margin-top:2px">' + esc(c.hood) + ' · ' + distanceLabel(c) + '</p></section>' +
+    '<section class="block"><h2>About</h2><p>' + esc(c.desc) + '</p>' +
+    '<div class="tags" style="margin-top:12px">' + c.types.map(t => '<span class="tag">' + esc(t) + '</span>').join('') + (c.women ? '<span class="tag red">Women only</span>' : '') +
+    c.langs.map(l => '<span class="tag">' + esc(l) + '</span>').join('') + '</div></section>' +
+    (blocked ? '<p class="notice">This club is for women. You can browse it, but you can\'t join.</p>' : '') +
+    '<section class="block"><h2>' + plural(c.members.length, 'runner', 'runners') + '</h2>' + members + '</section>' +
+    '<div class="bar">' + action + '</div>';
+}
+
+function vMine() {
+  const joined = state.clubs.filter(isMember).sort((a, b) => ((nextRun(a) || 1e15) - (nextRun(b) || 1e15)));
+  const body = joined.length
+    ? joined.map(clubCard).join('')
+    : '<div class="empty"><b>You haven\'t joined a club yet</b><p>Find a group that runs your pace, close to home.</p><button class="btn btn-red" data-go="list">Browse clubs</button></div>';
+  return '<header class="head"><h1>My clubs</h1><p class="muted" style="margin-top:6px">' +
+    (joined.length ? 'Next up: <b style="color:var(--sky-700)">' + esc(joined[0].name) + '</b>, ' + runLabel(nextRun(joined[0])) : 'Your runs will show up here.') + '</p></header>' +
+    body + '<button class="btn" data-go="create" style="margin-top:8px">' + icon('plus') + 'Start a club</button>';
+}
+
+function vCreate() {
+  const u = me();
+  return backBtn('list', 'Clubs') + '<h1>Start a club</h1><p class="muted" style="margin-top:6px">Set a time and place, and runners with a matching pace will find you.</p>' +
+    '<form data-form="create" novalidate>' +
+    '<label class="f" for="cname">Club name</label><input class="field" id="cname" name="name" placeholder="Retiro Sunday Runners" maxlength="48">' +
+    '<label class="f" for="chood">Neighborhood</label><select class="field" id="chood" name="hood">' + opts(HOODS, u.hood, 'Select') + '</select>' +
+    '<label class="f" for="cmeet">Meeting point</label><input class="field" id="cmeet" name="meet" placeholder="Puerta de Alcalá" maxlength="60">' +
+    '<label class="f">Pace</label><div class="pace-out" id="createOut">' + fmtPace(u.pace) + ' min/km</div>' +
+    '<input type="range" name="pace" data-range="createOut" min="' + PACE.min + '" max="' + PACE.max + '" step="' + PACE.step + '" value="' + u.pace + '" aria-label="Pace in seconds per kilometer">' +
+    '<label class="f" for="cdist">Distance</label><select class="field" id="cdist" name="dist">' + [3, 5, 6, 8, 10, 12, 15, 18, 21].map(k => '<option value="' + k + '"' + (k === 8 ? ' selected' : '') + '>' + k + ' km</option>').join('') + '</select>' +
+    '<label class="f">Days</label>' + chipGroup('days', dayItems(), []) +
+    '<label class="f" for="ctime">Start time</label><input class="field" type="time" id="ctime" name="time" value="09:00">' +
+    '<label class="f">Style</label>' + chipGroup('types', mapItems(TYPES), ['Social']) +
+    '<label class="f">Languages</label>' + chipGroup('langs', mapItems(LANGUAGES), u.langs && u.langs.length ? u.langs : ['English']) +
+    '<label class="f" for="cmax">Maximum group size</label><select class="field" id="cmax" name="max">' + [6, 8, 10, 12, 14, 16, 20].map(k => '<option' + (k === 12 ? ' selected' : '') + '>' + k + '</option>').join('') + '</select>' +
+    '<label class="switch" style="margin-top:8px"><span>Women-only club</span><input type="checkbox" name="women"' + (u.gender === 'Man' ? ' disabled' : '') + '></label>' +
+    '<label class="f" for="cdesc">About the club</label><textarea class="field" id="cdesc" name="desc" maxlength="280" placeholder="What is the route like? Who is it for?"></textarea>' +
+    '<div class="err" id="err" role="alert"></div>' +
+    '<button class="btn btn-red" type="submit">Start club</button><div style="height:20px"></div></form>';
+}
+
+function vProfile() {
+  const u = me(), joined = state.clubs.filter(isMember), founded = state.clubs.filter(c => c.founderId === u.id).length;
+  return '<div class="profile-top">' + avatar(u.name, true) + '<div><h1 style="font-size:22px">' + esc(u.name) + '</h1><p class="muted">' + esc(u.email) + '</p></div></div>' +
+    '<div class="kpis"><div class="kpi"><b>' + joined.length + '</b><span>Clubs</span></div><div class="kpi"><b>' + fmtPace(u.pace) + '</b><span>Pace /km</span></div><div class="kpi"><b>' + founded + '</b><span>Founded</span></div></div>' +
+    '<form data-form="profile" novalidate>' +
+    '<label class="f" for="pname">Full name</label><input class="field" id="pname" name="name" value="' + esc(u.name) + '" autocomplete="name">' +
+    '<label class="f" for="phood">Neighborhood</label><select class="field" id="phood" name="hood">' + opts(HOODS, u.hood, 'Select') + '</select>' +
+    '<label class="f" for="ppace">Usual pace</label><select class="field" id="ppace" name="pace">' + paceOpts(u.pace) + '</select>' +
+    '<label class="f">Days you can run</label>' + chipGroup('days', dayItems(), u.days || []) +
+    '<label class="f">Languages</label>' + chipGroup('langs', mapItems(LANGUAGES), u.langs || []) +
+    '<div class="err" id="err" role="alert"></div>' +
+    '<button class="btn btn-red" type="submit">Save changes</button></form>' +
+    '<div style="margin-top:22px;display:flex;flex-direction:column;align-items:center;gap:4px">' +
+    '<button class="link" data-act="logout">Log out</button>' +
+    '<button class="link danger" data-act="deleteaccount">Delete my account</button>' +
+    '<p class="fine" style="text-align:center;max-width:300px">' + (LOCAL_MODE ? 'Your profile is saved in this browser only. Deleting your account removes it.' : 'Your profile is stored in the PaceMates team database. Deleting your account removes it.') + '</p></div>';
+}
+
+const VIEWS = { loading: vLoading, offline: vOffline, welcome: vWelcome, signup: vSignup, login: vLogin, list: vList, filters: vFilters, club: vClub, mine: vMine, create: vCreate, profile: vProfile };
+const TITLES = { loading: 'PaceMates', offline: 'PaceMates', welcome: 'PaceMates: find your running club', signup: 'Create account · PaceMates', login: 'Log in · PaceMates', list: 'Clubs · PaceMates', filters: 'Filters · PaceMates', club: 'Club · PaceMates', mine: 'My clubs · PaceMates', create: 'Start a club · PaceMates', profile: 'Profile · PaceMates' };
+const PUBLIC_VIEWS = ['welcome', 'login', 'signup'];
+
+/* =====================================================================
+   7. RENDERING AND NAVIGATION
+   ===================================================================== */
+const appEl = document.getElementById('app');
+const screenEl = document.getElementById('screen');
+const tabsEl = document.getElementById('tabs');
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+
+function toast(msg) {
+  toastEl.textContent = msg; toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+}
+function renderTabs() {
+  const showTabs = TABS.some(t => t.view === state.view);
+  appEl.classList.toggle('has-tabs', showTabs);
+  if (!showTabs) return;
+  tabsEl.innerHTML = TABS.map(t =>
+    '<button data-go="' + t.view + '"' + (state.view === t.view ? ' aria-current="page"' : '') + '>' + icon(t.icon) + t.label + '</button>').join('');
+}
+function render(keepScroll) {
+  const y = screenEl.scrollTop;
+  screenEl.innerHTML = VIEWS[state.view]();
+  screenEl.scrollTop = keepScroll ? y : 0;
+  document.title = TITLES[state.view];
+  renderTabs();
+  if (state.view === 'filters') previewFilterCount();
+}
+function go(view, param) {
+  if (!me() && !PUBLIC_VIEWS.includes(view)) view = 'welcome';
+  if (view === 'club') state.back = TABS.some(t => t.view === state.view) ? state.view : state.back;
+  state.view = view; state.param = param || null;
+  render(false);
+  if (['list', 'mine', 'club'].includes(view)) refreshClubs();
+}
+function setErr(msg, field) {
+  const e = document.getElementById('err'); if (e) e.textContent = msg;
+  screenEl.querySelectorAll('[aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+  const el = field && screenEl.querySelector('[name="' + field + '"]');
+  if (el) { el.setAttribute('aria-invalid', 'true'); el.focus(); }
+  return false;
+}
+function updateList() {
+  const list = visibleClubs();
+  const box = document.getElementById('clubList'), count = document.getElementById('resultCount');
+  if (box) box.innerHTML = listBody(list);
+  if (count) count.textContent = plural(list.length, 'club', 'clubs');
+}
+
+/* =====================================================================
+   8. FORMS AND ACTIONS
+   ===================================================================== */
+const formData = form => {
+  const d = {}, fd = new FormData(form);
+  fd.forEach((v, k) => { d[k] = k in d ? [].concat(d[k], v) : v; });
+  ['days', 'langs', 'types', 'hoods', 'times', 'dists', 'sizes'].forEach(k => { if (k in d && !Array.isArray(d[k])) d[k] = [d[k]]; });
+  return d;
+};
+const list = v => v == null ? [] : Array.isArray(v) ? v : [v];
+
+function readFilters(d) {
+  return {
+    pace: 'anypace' in d || d.pace == null ? null : +d.pace,
+    tol: +(d.tol || 30),
+    hoods: list(d.hoods), days: list(d.days).map(Number), times: list(d.times), dists: list(d.dists),
+    types: list(d.types), sizes: list(d.sizes), langs: list(d.langs),
+    within: d.within === '' || d.within == null ? null : +d.within,
+    open: 'open' in d, women: 'women' in d
+  };
+}
+function previewFilterCount() {
+  const form = screenEl.querySelector('form[data-form="filters"]'), btn = document.getElementById('applyBtn');
+  if (!form || !btn) return;
+  const f = readFilters(formData(form));
+  const n = state.clubs.filter(c => matchesFilters(c, f, state.q)).length;
+  btn.textContent = n ? 'Show ' + plural(n, 'club', 'clubs') : 'No clubs match';
+  btn.disabled = n === 0;
+}
+
+function authBody(d) {
+  return { name: (d.name || '').trim(), email: (d.email || '').trim().toLowerCase(), password: d.password, gender: d.gender, nationality: d.nationality,
+    hood: d.hood, pace: +d.pace, days: list(d.days).map(Number), langs: list(d.langs) };
+}
+async function startSession(r, message) {
+  Token.set(r.token); state.user = r.user; state.filters = defaultFilters(); state.q = '';
+  persist(); await loadClubs(); go('list'); toast(message);
+}
+async function doSignup(d) {
+  const b = authBody(d);
+  if (b.name.split(/\s+/).length < 2) return setErr('Enter your first and last name.', 'name');
+  if (!/^\S+@\S+\.\S+$/.test(b.email)) return setErr('Enter a valid email address.', 'email');
+  if ((d.password || '').length < 8) return setErr('Use a password with at least 8 characters.', 'password');
+  if (!d.gender) return setErr('Select your gender.', 'gender');
+  if (!d.nationality) return setErr('Select your nationality.', 'nationality');
+  if (!d.hood) return setErr('Select your neighborhood.', 'hood');
+  if (!d.pace) return setErr('Select your usual pace.', 'pace');
+  await startSession(await api('POST', '/signup', b), 'Welcome to PaceMates, ' + firstName(b.name));
+}
+async function doLogin(d) {
+  const r = await api('POST', '/login', { email: (d.email || '').trim(), password: d.password || '' });
+  await startSession(r, 'Welcome back, ' + firstName(r.user.name));
+}
+async function doProfile(d) {
+  const b = authBody(d);
+  if (b.name.split(/\s+/).length < 2) return setErr('Enter your first and last name.', 'name');
+  if (!d.hood) return setErr('Select your neighborhood.', 'hood');
+  if (!d.pace) return setErr('Select your usual pace.', 'pace');
+  state.user = (await api('PUT', '/me', b)).user;
+  await loadClubs(); render(true); toast('Profile saved');
+}
+async function doCreate(d) {
+  const u = me(), days = list(d.days).map(Number);
+  if ((d.name || '').trim().length < 3) return setErr('Give your club a name.', 'name');
+  if (!d.hood) return setErr('Select a neighborhood.', 'hood');
+  if (!(d.meet || '').trim()) return setErr('Add a meeting point.', 'meet');
+  if (!days.length) return setErr('Select at least one day.');
+  if (!d.time) return setErr('Pick a start time.', 'time');
+  if (!list(d.langs).length) return setErr('Select at least one language.');
+  const r = await api('POST', '/clubs', { name: d.name.trim(), hood: d.hood, meet: d.meet.trim(), pace: +d.pace, dist: +d.dist, days: days, time: d.time,
+    types: list(d.types).length ? list(d.types) : ['Social'], langs: list(d.langs), max: +d.max, women: 'women' in d && u.gender !== 'Man', desc: (d.desc || '').trim() });
+  state.clubs.unshift(r.club); go('club', r.club.id); toast('Club created');
+}
+
+async function refreshClubs() {
+  if (!me() || !['list', 'mine', 'club'].includes(state.view)) return;
+  try {
+    const before = JSON.stringify(state.clubs);
+    await loadClubs();
+    if (JSON.stringify(state.clubs) === before) return;
+    if (state.view === 'list') updateList(); else render(true);
+  } catch (e) { if (e.status === 401) sessionExpired(); }
+}
+function sessionExpired() {
+  Token.clear(); state.user = null; state.clubs = []; go('welcome'); toast('Please log in again.');
+}
+
+async function act(name, el) {
+  try {
+    if (name === 'logout') { Token.clear(); state.user = null; state.clubs = []; await loadStats().catch(() => {}); go('welcome'); }
+    else if (name === 'retry') { boot(); }
+    else if (name === 'deleteaccount') {
+      if (window.confirm('Delete your account and your runner profile? Clubs you started stay, but you are removed from every club.')) {
+        await api('DELETE', '/me'); Token.clear(); state.user = null; state.clubs = []; await loadStats().catch(() => {}); go('welcome'); toast('Account deleted');
+      }
+    }
+    else if (name === 'resetfilters') { state.filters = defaultFilters(); persist(); render(true); }
+    else if (name === 'clearfilters') { state.filters = defaultFilters(); state.q = ''; persist(); render(true); }
+    else if (name === 'unfilter') {
+      const key = el.dataset.key, val = el.dataset.value, f = state.filters;
+      if (Array.isArray(f[key])) f[key] = f[key].filter(x => String(x) !== val);
+      else if (key === 'open' || key === 'women') f[key] = false;
+      else f[key] = null;
+      persist(); render(true);
+    }
+    else if (name === 'join' || name === 'leave') {
+      el.disabled = true;
+      const r = await api('POST', '/clubs/' + el.dataset.id + '/' + name);
+      state.clubs = state.clubs.map(c => c.id === r.club.id ? r.club : c);
+      toast(name === 'join' ? 'You joined ' + r.club.name : 'You left ' + r.club.name); render(true);
+    }
+  } catch (e) {
+    if (e.status === 401) sessionExpired(); else { toast(e.message); if (el) el.disabled = false; }
+  }
+}
+
+/* =====================================================================
+   9. EVENTS
+   ===================================================================== */
+appEl.addEventListener('click', e => {
+  const el = e.target.closest('[data-go],[data-act]'); if (!el) return;
+  if (el.dataset.go) go(el.dataset.go, el.dataset.id); else act(el.dataset.act, el);
+});
+appEl.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role=button]')) { e.preventDefault(); e.target.click(); }
+});
+appEl.addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target, d = formData(form), kind = form.dataset.form, btn = form.querySelector('[type=submit]');
+  if (kind === 'filters') { state.filters = readFilters(d); persist(); go('list'); return; }
+  const run = { signup: doSignup, login: doLogin, profile: doProfile, create: doCreate }[kind];
+  if (!run || (btn && btn.disabled)) return;
+  if (btn) btn.disabled = true;
+  try { await run(d); }
+  catch (err) { if (err.status === 401 && kind !== 'login') sessionExpired(); else setErr(err.message); }
+  finally { if (btn && btn.isConnected) btn.disabled = false; }
+});
+appEl.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'q') { state.q = t.value; updateList(); return; }
+  if (t.dataset && t.dataset.range) {
+    const out = document.getElementById(t.dataset.range);
+    if (out) out.textContent = fmtPace(+t.value) + ' min/km';
+  }
+});
+appEl.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'sort') { state.sort = t.value; persist(); updateList(); return; }
+  if (t.hasAttribute('data-anypace')) {
+    const range = document.getElementById('paceRange'), out = document.getElementById('paceOut');
+    range.disabled = t.checked;
+    out.textContent = t.checked ? 'Any pace' : fmtPace(+range.value) + ' min/km';
+  }
+  if (t.closest('form[data-form="filters"]')) previewFilterCount();
+});
+appEl.addEventListener('input', e => { if (e.target.closest('form[data-form="filters"]')) previewFilterCount(); });
+
+async function boot() {
+  state.view = 'loading'; render(false);
+  try {
+    if (Token.get()) { state.user = (await api('GET', '/me')).user; await loadClubs(); state.view = 'list'; }
+    else { await loadStats(); state.view = 'welcome'; }
+  } catch (e) {
+    if (e.status === 401) { Token.clear(); state.user = null; await loadStats().catch(() => {}); state.view = 'welcome'; }
+    else state.view = 'offline';
+  }
+  render(false);
+}
+setInterval(refreshClubs, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshClubs(); });
+boot();
+})();
+</script>
+</body>
+</html>
