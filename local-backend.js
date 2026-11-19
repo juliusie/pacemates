@@ -44,7 +44,7 @@ const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b =>
 
 /* ---------- views of the data (same shapes as the server) ---------- */
 const pubUser = u => ({ userId: u.id, name: displayName(u.name), nationality: u.nationality, gender: u.gender, pace: u.pace });
-const ownUser = u => ({ id: u.id, name: u.name, email: u.email, gender: u.gender, nationality: u.nationality, hood: u.hood, pace: u.pace, days: u.days, langs: u.langs });
+const ownUser = u => ({ id: u.id, name: u.name, gender: u.gender, nationality: u.nationality, hood: u.hood, pace: u.pace, days: u.days, langs: u.langs });
 function pubClub(db, c) {
   const f = db.users[c.founderId];
   return { id: c.id, name: c.name, hood: c.hood, meet: c.meet, pace: c.pace, dist: c.dist, days: c.days, time: c.time, types: c.types, langs: c.langs, max: c.max, women: c.women,
@@ -77,13 +77,12 @@ async function handle(method, path, body, token) {
   if (route === 'GET public') return { users: Object.keys(db.users).length, clubs: db.clubs.length, neighborhoods: new Set(db.clubs.map(c => c.hood)).size };
 
   if (route === 'POST signup') {
-    const email = clean(body.email, 120).toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw fail(400, 'Enter a valid email address.');
-    if (Object.values(db.users).some(u => u.email === email)) throw fail(409, 'That email already has an account. Log in instead.');
+    const name = fullName(body);
+    if (Object.values(db.users).some(u => u.name.toLowerCase() === name.toLowerCase())) throw fail(409, 'That name already has an account. Log in instead.');
     const pw = String(body.password || '');
-    if (pw.length < 8 || pw.length > 128) throw fail(400, 'Use a password with at least 8 characters.');
+    if (pw.length < 4 || pw.length > 128) throw fail(400, 'Use a password with at least 4 characters.');
     const id = 'u' + rid();
-    const u = { id: id, name: fullName(body), email: email, gender: choice(body, 'gender', GENDERS, 'gender'), nationality: choice(body, 'nationality', NATIONALITIES, 'nationality'),
+    const u = { id: id, name: name, gender: choice(body, 'gender', GENDERS, 'gender'), nationality: choice(body, 'nationality', NATIONALITIES, 'nationality'),
       hood: choice(body, 'hood', NEIGHBORHOODS, 'neighborhood'), pace: paceOf(body), days: subset(body.days, [0, 1, 2, 3, 4, 5, 6], 'day'), langs: subset(body.langs, LANGUAGES, 'language'), created: nowIso() };
     const salt = rid();
     db.creds[id] = { salt: salt, hash: await hash(pw, salt) };
@@ -94,9 +93,9 @@ async function handle(method, path, body, token) {
     return done({ token: tok, user: ownUser(u) });
   }
   if (route === 'POST login') {
-    const email = clean(body.email, 120).toLowerCase();
-    const u = Object.values(db.users).find(x => x.email === email), cred = u && db.creds[u.id];
-    if (!cred || (await hash(String(body.password || ''), cred.salt)) !== cred.hash) throw fail(401, 'Email or password is not right.');
+    const name = clean(body.name, 60).toLowerCase();
+    const u = Object.values(db.users).find(x => x.name.toLowerCase() === name), cred = u && db.creds[u.id];
+    if (!cred || (await hash(String(body.password || ''), cred.salt)) !== cred.hash) throw fail(401, 'Name or password is not right.');
     const tok = rid() + rid() + rid();
     db.sessions[tok] = u.id;
     return done({ token: tok, user: ownUser(u) });

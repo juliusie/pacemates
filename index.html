@@ -297,7 +297,8 @@ const defaultFilters = () => ({ pace: null, tol: 30, hoods: [], days: [], times:
 
 /* ---- server API ---- */
 const API_BASE = (window.PACEMATES_API || '').replace(/\/$/, '');
-const LOCAL_MODE = window.PACEMATES_API === null && !!window.PaceMatesLocal;
+const REMOTE_URL = typeof window.PACEMATES_API === 'string' && /^https?:\/\//.test(window.PACEMATES_API) ? window.PACEMATES_API : null;
+const LOCAL_MODE = !REMOTE_URL && !!window.PaceMatesLocal;
 const Token = {
   get() { try { return localStorage.getItem('pacemates-token'); } catch (e) { return null; } },
   set(v) { try { localStorage.setItem('pacemates-token', v); } catch (e) { /* ignore */ } },
@@ -307,8 +308,23 @@ const Prefs = {
   load() { try { return JSON.parse(localStorage.getItem('pacemates-prefs')) || {}; } catch (e) { return {}; } },
   save(s) { try { localStorage.setItem('pacemates-prefs', JSON.stringify({ filters: s.filters, sort: s.sort })); } catch (e) { /* ignore */ } }
 };
+/* Shared mode: the Google Apps Script web app (see google-script/Code.gs) keeps everything in a Google Sheet.
+   One POST with a plain-text body avoids a CORS preflight, which Apps Script does not answer. */
+async function remoteCall(method, path, body) {
+  let res, data;
+  try {
+    res = await fetch(REMOTE_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ method: method, path: path, body: body || {}, token: Token.get() }), redirect: 'follow' });
+    data = await res.json();
+  } catch (e) {
+    const err = new Error('Can\'t reach PaceMates right now. Check your connection and try again.'); err.status = 0; throw err;
+  }
+  if (!data.ok) { const err = new Error(data.error || 'Something went wrong.'); err.status = data.status || 500; throw err; }
+  return data.data;
+}
 async function api(method, path, body) {
   if (LOCAL_MODE) return window.PaceMatesLocal.handle(method, path, body, Token.get());
+  if (REMOTE_URL) return remoteCall(method, path, body);
   const headers = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' };
   if (Token.get()) headers.Authorization = 'Bearer ' + Token.get();
   let res;
@@ -484,7 +500,7 @@ function vWelcome() {
     '<button class="btn btn-red" data-go="signup">Create account</button>' +
     '<button class="btn" data-go="login">Log in</button>' +
     '<p class="fine" style="text-align:center;margin-top:6px">Running clubs across Madrid, matched to your pace, area and week.</p>' +
-    (LOCAL_MODE ? '<p class="fine" style="text-align:center">Prototype: accounts and clubs are saved in this browser only.</p>' : '') + '</div>';
+    (LOCAL_MODE ? '<p class="fine" style="text-align:center">Prototype: accounts and clubs are saved in this browser only.</p>' : '<p class="fine" style="text-align:center">Prototype: please use made-up names and passwords.</p>') + '</div>';
 }
 const vLoading = () => '<div class="empty" style="margin-top:34vh"><b>PaceMates</b><p>Loading…</p></div>';
 const vOffline = () => '<div class="empty" style="margin-top:28vh"><b>Can\'t reach PaceMates</b><p>The server is not answering. Check your connection and try again.</p><button class="btn btn-red" data-act="retry">Try again</button></div>';
@@ -493,8 +509,8 @@ function vSignup() {
   return backBtn('welcome') + '<h1>Create your account</h1><p class="muted" style="margin-top:6px">Two minutes, then you see clubs that fit.</p>' +
     '<form data-form="signup" novalidate>' +
     '<label class="f" for="name">Full name</label><input class="field" id="name" name="name" autocomplete="name" placeholder="Julia Fernández">' +
-    '<label class="f" for="email">Email</label><input class="field" type="email" id="email" name="email" autocomplete="email" placeholder="julia@email.com">' +
-    '<label class="f" for="password">Password</label><input class="field" type="password" id="password" name="password" autocomplete="new-password" placeholder="At least 8 characters">' +
+    '<label class="f" for="password">Password</label><input class="field" type="password" id="password" name="password" autocomplete="new-password" placeholder="At least 4 characters">' +
+    '<p class="hint">Please use a made-up password, not one you use anywhere else.</p>' +
     '<label class="f" for="gender">Gender</label><select class="field" id="gender" name="gender">' + opts(GENDERS, '', 'Select') + '</select>' +
     '<label class="f" for="nationality">Nationality</label><select class="field" id="nationality" name="nationality">' + opts(NATIONALITIES, '', 'Select') + '</select>' +
     '<label class="f" for="hood">Neighborhood in Madrid</label><select class="field" id="hood" name="hood">' + opts(HOODS, '', 'Select') + '</select>' +
@@ -509,7 +525,7 @@ function vSignup() {
 function vLogin() {
   return backBtn('welcome') + '<h1>Welcome back</h1><p class="muted" style="margin-top:6px">Log in to see your clubs.</p>' +
     '<form data-form="login" novalidate>' +
-    '<label class="f" for="email">Email</label><input class="field" type="email" id="email" name="email" autocomplete="email" placeholder="julia@email.com">' +
+    '<label class="f" for="name">Full name</label><input class="field" id="name" name="name" autocomplete="name" placeholder="Julia Fernández">' +
     '<label class="f" for="password">Password</label><input class="field" type="password" id="password" name="password" autocomplete="current-password">' +
     '<div class="err" id="err" role="alert"></div>' +
     '<button class="btn btn-red" type="submit">Log in</button>' +
@@ -618,7 +634,7 @@ function vCreate() {
 
 function vProfile() {
   const u = me(), joined = state.clubs.filter(isMember), founded = state.clubs.filter(c => c.founderId === u.id).length;
-  return '<div class="profile-top">' + avatar(u.name, true) + '<div><h1 style="font-size:22px">' + esc(u.name) + '</h1><p class="muted">' + esc(u.email) + '</p></div></div>' +
+  return '<div class="profile-top">' + avatar(u.name, true) + '<div><h1 style="font-size:22px">' + esc(u.name) + '</h1><p class="muted">' + esc(u.hood) + ' · ' + fmtPace(u.pace) + ' min/km</p></div></div>' +
     '<div class="kpis"><div class="kpi"><b>' + joined.length + '</b><span>Clubs</span></div><div class="kpi"><b>' + fmtPace(u.pace) + '</b><span>Pace /km</span></div><div class="kpi"><b>' + founded + '</b><span>Founded</span></div></div>' +
     '<form data-form="profile" novalidate>' +
     '<label class="f" for="pname">Full name</label><input class="field" id="pname" name="name" value="' + esc(u.name) + '" autocomplete="name">' +
@@ -719,7 +735,7 @@ function previewFilterCount() {
 }
 
 function authBody(d) {
-  return { name: (d.name || '').trim(), email: (d.email || '').trim().toLowerCase(), password: d.password, gender: d.gender, nationality: d.nationality,
+  return { name: (d.name || '').trim(), password: d.password, gender: d.gender, nationality: d.nationality,
     hood: d.hood, pace: +d.pace, days: list(d.days).map(Number), langs: list(d.langs) };
 }
 async function startSession(r, message) {
@@ -729,8 +745,7 @@ async function startSession(r, message) {
 async function doSignup(d) {
   const b = authBody(d);
   if (b.name.split(/\s+/).length < 2) return setErr('Enter your first and last name.', 'name');
-  if (!/^\S+@\S+\.\S+$/.test(b.email)) return setErr('Enter a valid email address.', 'email');
-  if ((d.password || '').length < 8) return setErr('Use a password with at least 8 characters.', 'password');
+  if ((d.password || '').length < 4) return setErr('Use a password with at least 4 characters.', 'password');
   if (!d.gender) return setErr('Select your gender.', 'gender');
   if (!d.nationality) return setErr('Select your nationality.', 'nationality');
   if (!d.hood) return setErr('Select your neighborhood.', 'hood');
@@ -738,7 +753,7 @@ async function doSignup(d) {
   await startSession(await api('POST', '/signup', b), 'Welcome to PaceMates, ' + firstName(b.name));
 }
 async function doLogin(d) {
-  const r = await api('POST', '/login', { email: (d.email || '').trim(), password: d.password || '' });
+  const r = await api('POST', '/login', { name: (d.name || '').trim(), password: d.password || '' });
   await startSession(r, 'Welcome back, ' + firstName(r.user.name));
 }
 async function doProfile(d) {

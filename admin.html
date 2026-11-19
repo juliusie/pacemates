@@ -115,7 +115,7 @@ function dashboard(d) {
     '<p class="path" style="margin:-6px 0 18px">' + (LOCAL ? 'Data source: ' : 'Stored as Markdown files in the Obsidian vault: ') + esc(d.dataDir) + '</p>' +
     '<div class="two"><div>' +
     '<section class="panel"><h2>Runners <small>' + d.users.length + '</small></h2>' + (d.users.length ? '<div class="scroll"><table><thead><tr><th>Name</th><th>Neighborhood</th><th>Pace</th><th>Days</th><th>Clubs</th><th>Signed up</th><th></th></tr></thead><tbody>' +
-    d.users.map(u => '<tr><td><b>' + esc(u.name) + '</b>' + (fresh(u.id) ? '<span class="new">new</span>' : '') + '<br><span class="muted">' + esc(u.email) + '<br>' + esc(u.nationality) + ' · ' + esc(u.gender) + '</span></td>' +
+    d.users.map(u => '<tr><td><b>' + esc(u.name) + '</b>' + (fresh(u.id) ? '<span class="new">new</span>' : '') + '<br><span class="muted">' + esc(u.nationality) + ' · ' + esc(u.gender) + '</span></td>' +
       '<td>' + esc(u.hood) + '</td><td>' + pace(u.pace) + '</td><td>' + (u.days.length ? u.days.map(i => DAYS[i]).join(', ') : '<span class="muted">any</span>') + '</td>' +
       '<td>' + (u.clubs.length ? u.clubs.map(c => '<span class="tag">' + esc(c) + '</span>').join('') : '<span class="muted">none</span>') + '</td><td class="muted">' + when(u.created) + '</td>' +
       '<td><button class="btn sm danger" data-del="users" data-id="' + u.id + '" data-name="' + esc(u.name) + '">Remove</button></td></tr>').join('') + '</tbody></table></div>' : '<p class="empty">No runners yet. Share the app link and the first sign-ups show up here.</p>') + '</section>' +
@@ -137,7 +137,17 @@ function dashboard(d) {
   }));
 }
 
+const SHARED = typeof window.PACEMATES_API === 'string' && /^https?:\/\//.test(window.PACEMATES_API);
+function sharedView() {
+  const link = window.PACEMATES_SHEET;
+  root.innerHTML = '<header><div class="wrap top"><div class="brand"><div class="logo"><i></i><i></i></div><div><h1>PaceMates team dashboard</h1>' +
+    '<p class="sub">Shared mode</p></div></div></div></header><main><div class="wrap"><section class="panel"><h2>Where the data is</h2>' +
+    '<p class="empty" style="color:var(--ink)">All runners, clubs and activity are stored in a Google Sheet (tabs <b>Users</b>, <b>Clubs</b>, <b>Log</b>). The sheet is the team view: every sign-up and every new club appears there as a new row, and you can read, correct or delete rows directly.</p>' +
+    (link ? '<p class="empty"><a class="btn red" style="display:inline-block;text-decoration:none" href="' + esc(link) + '" target="_blank" rel="noopener">Open the Google Sheet</a></p>' : '<p class="empty">Ask the project owner for the link to the sheet.</p>') +
+    '</section></div></main>';
+}
 async function load(first) {
+  if (SHARED) return sharedView();
   if (!LOCAL && !getKey()) return loginView();
   try {
     const d = await call('GET', '/overview');
