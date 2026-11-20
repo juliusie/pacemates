@@ -202,6 +202,20 @@ input[type=range]:disabled{opacity:.4}
 .kpi b{display:block;font-size:21px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
 .kpi span{font-size:10.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.07em}
 
+/* ---------- feedback ---------- */
+.rowbtn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:12px 0 4px;padding:13px 16px;border-radius:18px;text-align:left;cursor:pointer;color:var(--ink);background:var(--sky-100);border:1px solid var(--sky-300)}
+.rowbtn b{display:block;font-size:14.5px;font-weight:600}
+.rowbtn small{font-size:12px;color:var(--muted)}
+.fbcard{margin:12px 0 4px;padding:14px;border-radius:18px;background:var(--sky-100);border:1px solid var(--sky-300)}
+.fbcard b{font-size:14.5px;font-weight:600}
+.fbcard p{margin:3px 0 12px;font-size:13px;color:var(--ink-2)}
+.fbbtns{display:flex;gap:8px}
+.fbbtns .btn{min-height:42px;font-size:14px;width:auto;flex:1}
+.fbbtns .btn:last-child{flex:.6}
+.rate{display:flex;gap:8px}
+.rate .chip{flex:1}
+.rate .chip span{display:block;text-align:center;padding:13px 0;font-size:17px;font-weight:600;border-radius:14px}
+
 /* ---------- toast ---------- */
 #toast{position:absolute;left:20px;right:20px;bottom:calc(var(--tabs) + 32px);padding:13px 16px;border-radius:18px;color:var(--ink);font-size:13.5px;font-weight:500;text-align:center;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;z-index:40}
 #toast.show{opacity:1;transform:none}
@@ -303,7 +317,8 @@ const ICONS = {
   route:    '<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8a4 4 0 0 0 0-8H8a4 4 0 0 1 0-8h8"/>',
   back:     '<path d="M15 18l-6-6 6-6"/>',
   close:    '<path d="M18 6L6 18M6 6l12 12"/>',
-  plus:     '<path d="M12 5v14M5 12h14"/>'
+  plus:     '<path d="M12 5v14M5 12h14"/>',
+  next:     '<path d="M9 18l6-6-6-6"/>'
 };
 const icon = (name, extra) => '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"' + (extra || '') + '>' + ICONS[name] + '</svg>';
 
@@ -333,6 +348,11 @@ const Prefs = {
 };
 /* Shared mode: the Google Apps Script web app (see google-script/Code.gs) keeps everything in a Google Sheet.
    One POST with a plain-text body avoids a CORS preflight, which Apps Script does not answer. */
+const FB_KEY = 'pacemates-feedback-seen';
+const fbSeen = {
+  get() { try { return JSON.parse(localStorage.getItem(FB_KEY)) || {}; } catch (e) { return {}; } },
+  mark(id) { try { const s = this.get(); s[id] = 1; localStorage.setItem(FB_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ } }
+};
 async function remoteCall(method, path, body) {
   let res, data;
   try {
@@ -606,6 +626,10 @@ function vClub() {
       (m.name === c.founder ? ' <span class="tag" style="margin-left:4px">Founder</span>' : '') + '</b>' +
       '<div class="fine">' + esc(m.nationality) + ' · ' + esc(m.gender) + ' · ' + fmtPace(m.pace) + ' /km</div></div></div>';
   }).join('');
+  const founder = c.founderId === u.id;
+  const fbCard = (joined && !fbSeen.get()[c.id])
+    ? '<div class="fbcard"><b>' + (founder ? 'You started this club' : 'You joined this club') + '</b><p>How was it to find and ' + (founder ? 'create' : 'join') + ' it? Tell us in 30 seconds.</p>' +
+      '<div class="fbbtns"><button class="btn btn-red" data-go="feedback" data-id="club:' + c.id + '">Give feedback</button><button class="btn" data-act="fblater" data-id="' + c.id + '">Later</button></div></div>' : '';
   let action;
   if (joined) action = '<button class="btn" data-act="leave" data-id="' + c.id + '">Leave club</button>';
   else if (blocked) action = '<button class="btn" disabled>Women-only club</button>';
@@ -613,7 +637,7 @@ function vClub() {
   else action = '<button class="btn btn-red" data-act="join" data-id="' + c.id + '">Join club</button>';
   const routeUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(c.meet + ', ' + c.hood + ', Madrid, Spain');
   const route = '<a class="btn" href="' + routeUrl + '" target="_blank" rel="noopener">' + icon('pin') + 'Route</a>';
-  return backBtn(state.back) + '<div class="cover"><h1>' + esc(c.name) + '</h1><p>' + esc(c.hood) + ' · <span style="color:var(--sky-700)">' + matchScore(c) + '% match for you</span></p></div>' +
+  return backBtn(state.back) + '<div class="cover"><h1>' + esc(c.name) + '</h1><p>' + esc(c.hood) + ' · <span style="color:var(--sky-700)">' + matchScore(c) + '% match for you</span></p></div>' + fbCard +
     '<div class="grid"><div class="stat"><b>' + fmtPace(c.pace) + '</b><span>Pace /km</span></div><div class="stat"><b>' + c.dist + ' km</b><span>Distance</span></div>' +
     '<div class="stat"><b>' + levelOf(c) + '</b><span>Level</span></div><div class="stat"><b>' + c.members.length + ' / ' + c.max + '</b><span>Runners</span></div></div>' +
     '<section class="block"><h2>Next runs</h2><ul class="runs">' + runs.map(d => '<li><b>' + runLabel(d) + '</b><span>' + esc(c.meet) + '</span></li>').join('') + '</ul></section>' +
@@ -661,6 +685,7 @@ function vProfile() {
   const u = me(), joined = state.clubs.filter(isMember), founded = state.clubs.filter(c => c.founderId === u.id).length;
   return '<div class="profile-top">' + avatar(u.name, true) + '<div><h1 style="font-size:22px">' + esc(u.name) + '</h1><p class="muted">' + esc(u.hood) + ' · ' + fmtPace(u.pace) + ' min/km</p></div></div>' +
     '<div class="kpis"><div class="kpi"><b>' + joined.length + '</b><span>Clubs</span></div><div class="kpi"><b>' + fmtPace(u.pace) + '</b><span>Pace /km</span></div><div class="kpi"><b>' + founded + '</b><span>Founded</span></div></div>' +
+    '<button class="rowbtn" data-go="feedback"><span><b>Give feedback</b><small>Takes 30 seconds</small></span>' + icon('next') + '</button>' +
     '<form data-form="profile" novalidate>' +
     '<label class="f" for="pname">Full name</label><input class="field" id="pname" name="name" value="' + esc(u.name) + '" autocomplete="name">' +
     '<label class="f" for="phood">Neighborhood</label><select class="field" id="phood" name="hood">' + opts(HOODS, u.hood, 'Select') + '</select>' +
@@ -675,8 +700,21 @@ function vProfile() {
     '<p class="fine" style="text-align:center;max-width:300px">' + (LOCAL_MODE ? 'Your profile is saved in this browser only. Deleting your account removes it.' : 'Your profile is stored in the PaceMates team database. Deleting your account removes it.') + '</p></div>';
 }
 
-const VIEWS = { loading: vLoading, offline: vOffline, welcome: vWelcome, signup: vSignup, login: vLogin, list: vList, filters: vFilters, club: vClub, mine: vMine, create: vCreate, profile: vProfile };
-const TITLES = { loading: 'PaceMates', offline: 'PaceMates', welcome: 'PaceMates: find your running club', signup: 'Create account · PaceMates', login: 'Log in · PaceMates', list: 'Clubs · PaceMates', filters: 'Filters · PaceMates', club: 'Club · PaceMates', mine: 'My clubs · PaceMates', create: 'Start a club · PaceMates', profile: 'Profile · PaceMates' };
+function vFeedback() {
+  const ctx = String(state.param || ''), clubId = ctx.indexOf('club:') === 0 ? ctx.slice(5) : '', c = clubId ? clubById(clubId) : null;
+  const back = c ? '<button class="back" data-go="club" data-id="' + c.id + '">' + icon('back') + 'Back</button>' : backBtn('profile');
+  return back + '<h1>Give feedback</h1><p class="muted" style="margin-top:6px">' + (c ? 'About finding and joining ' + esc(c.name) + '. ' : 'Tell us what works and what does not. ') + 'It takes 30 seconds.</p>' +
+    '<form data-form="feedback" novalidate><input type="hidden" name="clubId" value="' + esc(clubId) + '">' +
+    '<label class="f">How likely are you to use PaceMates?</label>' +
+    '<div class="rate">' + [1, 2, 3, 4, 5].map(n => '<label class="chip"><input type="radio" name="rating" value="' + n + '"><span>' + n + '</span></label>').join('') + '</div>' +
+    '<div class="row fine" style="margin-top:6px"><span>Not likely</span><span>Very likely</span></div>' +
+    '<label class="f" for="hard">What was hard or unclear?</label><textarea class="field" id="hard" name="hard" maxlength="500" placeholder="For example: I could not find the filter"></textarea>' +
+    '<label class="f" for="missing">What is missing for you?</label><textarea class="field" id="missing" name="missing" maxlength="500" placeholder="For example: a map of the meeting point"></textarea>' +
+    '<div class="err" id="err" role="alert"></div><button class="btn btn-red" type="submit">Send feedback</button><div style="height:20px"></div></form>';
+}
+
+const VIEWS = { feedback: vFeedback, loading: vLoading, offline: vOffline, welcome: vWelcome, signup: vSignup, login: vLogin, list: vList, filters: vFilters, club: vClub, mine: vMine, create: vCreate, profile: vProfile };
+const TITLES = { feedback: 'Feedback · PaceMates', loading: 'PaceMates', offline: 'PaceMates', welcome: 'PaceMates: find your running club', signup: 'Create account · PaceMates', login: 'Log in · PaceMates', list: 'Clubs · PaceMates', filters: 'Filters · PaceMates', club: 'Club · PaceMates', mine: 'My clubs · PaceMates', create: 'Start a club · PaceMates', profile: 'Profile · PaceMates' };
 const PUBLIC_VIEWS = ['welcome', 'login', 'signup'];
 
 /* =====================================================================
@@ -789,6 +827,13 @@ async function doProfile(d) {
   state.user = (await api('PUT', '/me', b)).user;
   await loadClubs(); render(true); toast('Profile saved');
 }
+async function doFeedback(d) {
+  if (!d.rating) return setErr('Pick a rating from 1 to 5.');
+  const clubId = d.clubId || '';
+  await api('POST', '/feedback', { rating: +d.rating, hard: (d.hard || '').trim(), missing: (d.missing || '').trim(), where: clubId ? 'club' : 'profile', clubId: clubId });
+  if (clubId) fbSeen.mark(clubId);
+  toast('Thanks, your feedback was sent'); go(clubId ? 'club' : 'profile', clubId || null);
+}
 async function doCreate(d) {
   const u = me(), days = list(d.days).map(Number);
   if ((d.name || '').trim().length < 3) return setErr('Give your club a name.', 'name');
@@ -820,6 +865,7 @@ async function act(name, el) {
   try {
     if (name === 'logout') { Token.clear(); state.user = null; state.clubs = []; await loadStats().catch(() => {}); go('welcome'); }
     else if (name === 'retry') { boot(); }
+    else if (name === 'fblater') { fbSeen.mark(el.dataset.id); render(true); }
     else if (name === 'deleteaccount') {
       if (window.confirm('Delete your account and your runner profile? Clubs you started stay, but you are removed from every club.')) {
         await api('DELETE', '/me'); Token.clear(); state.user = null; state.clubs = []; await loadStats().catch(() => {}); go('welcome'); toast('Account deleted');
@@ -859,7 +905,7 @@ appEl.addEventListener('submit', async e => {
   e.preventDefault();
   const form = e.target, d = formData(form), kind = form.dataset.form, btn = form.querySelector('[type=submit]');
   if (kind === 'filters') { state.filters = readFilters(d); persist(); go('list'); return; }
-  const run = { signup: doSignup, login: doLogin, profile: doProfile, create: doCreate }[kind];
+  const run = { signup: doSignup, login: doLogin, profile: doProfile, create: doCreate, feedback: doFeedback }[kind];
   if (!run || (btn && btn.disabled)) return;
   const label = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Please wait…'; }

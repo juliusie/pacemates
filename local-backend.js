@@ -144,6 +144,16 @@ async function handle(method, path, body, token) {
     return done({ club: pubClub(db, c) });
   }
 
+  if (route === 'POST feedback') {
+    const u = need(), rating = parseInt(body.rating, 10);
+    if (!(rating >= 1 && rating <= 5)) throw fail(400, 'Pick a rating from 1 to 5.');
+    db.feedback = db.feedback || [];
+    const c = db.clubs.find(x => x.id === String(body.clubId || ''));
+    db.feedback.push({ time: nowIso(), user: u.name, rating: rating, hard: clean(body.hard, 500), missing: clean(body.missing, 500), where: body.where === 'club' ? 'after joining a club' : 'profile', club: c ? c.name : '' });
+    log(db, displayName(u.name) + ' sent feedback (rating ' + rating + ')');
+    return done({ ok: true });
+  }
+
   /* admin view (no key needed in local mode: the data only lives in this browser) */
   if (route === 'GET admin/overview') {
     const users = Object.values(db.users).map(u => Object.assign(ownUser(u), { created: u.created, clubs: db.clubs.filter(c => c.members.includes(u.id)).map(c => c.name) }))
